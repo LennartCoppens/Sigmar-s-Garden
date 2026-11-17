@@ -39,7 +39,6 @@ elementsIndexed = [
     "Silver",
     "Gold"
 ]
-
 possibleCombinations = {
     "Salt": 15872,
     "Air": 12288,
@@ -74,19 +73,44 @@ elementAmounts = {
     "Gold": 1
 }
 
+elementSymbols = {
+    # name:        (symbol, color)
+    "Salt":        ("🜔", "\033[97m"),        # white
+    "Air":         ("🜁", "\033[38;5;195m"),  # very light blue
+    "Fire":        ("🜂", "\033[91m"),        # red
+    "Water":       ("🜄", "\033[36m"),        # teal
+    "Earth":       ("🜃", "\033[92m"),        # green
+    "Quicksilver": ("☿", "\033[37m"),        # silver-grey
+    "Lead":        ("♄", "\033[90m"),        # dark grey
+    "Tin":         ("♃", "\033[37m"),        # light grey
+    "Iron":        ("♂", "\033[31m"),        # dark red
+    "Copper":      ("♀", "\033[38;5;208m"),  # orange
+    "Silver":      ("☽", "\033[37m"),        # silver-grey
+    "Gold":        ("☉", "\033[93m"),       # yellow
+    "Vitae":       ("⍋", "\033[38;5;218m"), # pink
+    "Mors":        ("⍒", "\033[90m"),       # dark grey
+}
+
+resetColor = "\033[0m"
+
 testField = [
-    [1,1,0,0,0,0,0,0,0,0,0],
-    [1,1,1,0,0,0,1,0,0,0,0],
-    [1,0,1,1,0,0,1,1,0,0,0],
-    [1,0,1,1,1,1,1,0,1,0,0],
-    [1,1,1,1,1,0,1,1,0,1,0],
+    [0,0,0,0,0,1,1,0,0,0,0],
+    [0,0,0,0,1,1,1,0,0,0,1],
+    [0,0,0,1,0,1,1,0,0,1,1],
+    [0,0,1,0,1,1,1,1,1,0,1],
+    [0,1,1,1,1,1,0,1,1,0,1],
     [0,0,0,1,0,1,1,1,1,1,1],
-    [0,0,0,0,1,1,0,1,1,1,1],
-    [0,0,0,0,1,1,1,1,0,0,0],
-    [0,0,0,0,1,1,1,1,0,0,0],
-    [0,0,0,0,1,1,0,0,1,0,0],
-    [0,0,0,0,0,1,1,1,1,1,0]
+    [0,0,0,1,1,0,1,1,1,1,0],
+    [0,0,1,1,1,1,0,0,0,0,0],
+    [0,1,1,1,1,0,0,0,0,0,0],
+    [1,1,0,0,1,0,0,0,0,0,0],
+    [1,1,1,1,1,0,0,0,0,0,0]
 ]
+
+
+# Field generation
+##########################################################################################
+
 
 numOfRows = 11
 numOfColums = 11
@@ -118,18 +142,76 @@ def generateField(fieldTemplate = testField, elementsPool = elementAmounts):
                 insertElement(y, x, randomElement())
     return field
 
+
+# Field visualization
+##########################################################################################
+
+def printField(field):
+    SIZE = 6  # cells along each edge of the big hexagon
+
+    CELL = [
+        r" _.-'-._ ",
+        r"|       |",
+        r"|       |",
+        r"'-._ _.-' ",
+    ]
+
+    rows = 2 * SIZE - 1
+    canvas = [[" "] * (rows * 8 + 2) for _ in range(rows * 3 + 1)]
+
+    def fieldToTerminalFormat(fieldList):
+        outputField = [[''] * ((2*SIZE - 1) - abs(row - (SIZE - 1)))
+                    for row in range(2*SIZE - 1)]
+        for y, row in enumerate(fieldList):
+            for x, cell in enumerate(row):
+                if SIZE - 1 <= x + y <= 3*SIZE - 3:
+                    outputField[y][x + min(0, y - (SIZE - 1))] = cell
+        return outputField
+
+    def draw(x, y, lines, element):
+        # x, y are canvas (character) coordinates; element is the cell's content
+        for dy, line in enumerate(lines):
+            for dx, ch in enumerate(line):
+                if ch != " ":
+                    canvas[y + dy][x + dx] = ch
+        if element:
+            symbol, color = elementSymbols[element]
+            canvas[y+1][x+4] = f"{color}{symbol}{resetColor}"
+
+    terminalField = fieldToTerminalFormat(field)
+
+    for r in range(rows):
+        distance_from_middle = abs(r - (SIZE - 1))
+        cells_in_row = rows - distance_from_middle
+
+        for c in range(cells_in_row):
+            x = distance_from_middle * 4 + c * 8
+            y = r * 3
+            draw(x, y, CELL, terminalField[r][c])
+
+    for line in canvas:
+        print("".join(line).rstrip())
+
+    return
+
+
+# Gameloop
+##########################################################################################
+
 newGame = False
 gameGoing = False
+quitGame = False
 
-while True:
+while not quitGame:
     gameGoing = newGame or gameGoing
 
-    while not newGame:
-        newGame = input("Wanna start a new game? [y/n]") == 'y'
+    while not (newGame or quitGame):
+        answer = input("Wanna start a new game? [y/n]")
+        newGame = answer == 'y'
+        quitGame = answer == 'n'
 
     if gameGoing:
         newGame = False
         currentField = generateField()
-        for row in currentField:
-            print(row)
+        printField(currentField)
         gameGoing = False
