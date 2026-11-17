@@ -40,20 +40,20 @@ elementsIndexed = [
     "Gold"
 ]
 possibleCombinations = {
-    "Salt": 15872,
-    "Air": 12288,
-    "Earth": 8192,
-    "Fire": 16384,
-    "Water": 10240,
-    "Vitae": 32768,
-    "Mors": 8192,
-    "Quicksilver": 3072,
-    "Lead": 4096,
-    "Tin": 4096,
-    "Iron": 4096,
-    "Copper": 4096,
-    "Silver": 4096,
-    "Gold": 0
+    "Salt":         int("00000000011111", 2),
+    "Air":          int("00000000000011", 2),
+    "Earth":        int("00000000000101", 2),
+    "Fire":         int("00000000001001", 2),
+    "Water":        int("00000000010001", 2),
+    "Vitae":        int("00000001000000", 2),
+    "Mors":         int("00000000100000", 2),
+    "Quicksilver":  int("01111100000000", 2),
+    "Lead":         int("00000010000000", 2),
+    "Tin":          int("00000010000000", 2),
+    "Iron":         int("00000010000000", 2),
+    "Copper":       int("00000010000000", 2),
+    "Silver":       int("00000010000000", 2),
+    "Gold":         int("00000000000000", 2)
 }
 
 elementAmounts = {
@@ -202,6 +202,42 @@ newGame = False
 gameGoing = False
 quitGame = False
 
+def canCombine(a, b):
+    aCanTakeB = (possibleCombinations[a] >> elementsIndexed.index(b)) & 1
+    bCanTakeA = (possibleCombinations[b] >> elementsIndexed.index(a)) & 1
+    return aCanTakeB == 1 and bCanTakeA == 1
+
+hexNeighbours = [(-1, 0), (-1, 1), (0, 1), (1, 0), (1, -1), (0, -1)]   # (row, cell) offsets of the 6 neighbours
+
+def elementFree(row, cell):
+    freeCells = 0
+    for dRow, dCell in hexNeighbours:
+        r, c = row + dRow, cell + dCell
+        if not (0 <= r < len(currentField) and 0 <= c < len(currentField[r])):
+            freeCells += 1                                          # Outside the grid counts as free
+        elif not currentField[r][c]:
+            freeCells += 1                                          # Empty cell
+    return freeCells >= 3
+
+def boardToField(row, cell):
+    # Converts the row/cell you see on the printed board to the index in currentField
+    return row, cell + max(0, 5 - row)
+
+def readChoice(label):
+    row = int(input(f"{label} element: (row)"))
+    cell = int(input(f"{label} element: (cell)"))
+    row, cell = boardToField(row, cell)
+    return {'row': row, 'cell': cell}
+
+def removeElements(elem1, elem2 = False):
+    global elementsOnField
+    currentField[elem1["row"]][elem1["cell"]] = 0
+    elementsOnField -=1
+    if elem2:
+        currentField[elem2["row"]][elem2["cell"]] = 0
+        elementsOnField -= 1
+    printField(currentField)
+
 while not quitGame:
     gameGoing = newGame or gameGoing
 
@@ -212,6 +248,56 @@ while not quitGame:
 
     if gameGoing:
         newGame = False
+        leadToGold = 0
         currentField = generateField()
         printField(currentField)
-        gameGoing = False
+        elementsOnField = 0
+        for y in currentField:
+            for x in y:
+                if x:
+                    elementsOnField += 1
+
+        while gameGoing:
+            if elementsOnField:
+
+                print("Choose two elements")
+                firstChoice = readChoice("First")
+                element1 = currentField[firstChoice['row']][firstChoice['cell']]
+                print(element1)
+
+                if element1 == "Gold" and leadToGold >= 5:
+                    if elementFree(firstChoice["row"], firstChoice["cell"]):
+                        removeElements(firstChoice)
+                    else:
+                        print("Gold is not free")
+                else:
+                    secondChoice = readChoice("Second")
+                    element2 = currentField[secondChoice['row']][secondChoice['cell']]
+                    print(element2)
+
+                    if not (element1 and element2):
+                        print("One of the chosen cells is empty")
+                    elif firstChoice == secondChoice:
+                        print("You chose the same cell twice")
+                    elif not canCombine(element1, element2):
+                        print(f"{element1} and {element2} can't be combined")
+                    elif not elementFree(firstChoice["row"], firstChoice["cell"]):
+                        print(f"The first element ({element1}) is not free")
+                    elif not elementFree(secondChoice["row"], secondChoice["cell"]):
+                        print(f"The second element ({element2}) is not free")
+                    elif element1 == "Quicksilver" or element2 == "Quicksilver":
+                        metal = element2 if element1 == "Quicksilver" else element1
+                        if elementsIndexed.index(metal) <= elementsIndexed.index("Lead") + leadToGold:
+                            leadToGold += 1
+                            removeElements(firstChoice, secondChoice)
+                        else:
+                            print(f"{metal} is not the next metal to remove")
+                    else:
+                        removeElements(firstChoice, secondChoice)
+
+            else:
+                print("You won!")
+                gameGoing = False
+
+
+
