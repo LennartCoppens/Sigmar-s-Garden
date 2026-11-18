@@ -153,7 +153,7 @@ def printField(field):
         r" _.-'-._ ",
         r"|       |",
         r"|       |",
-        r"'-._ _.-' ",
+        r"'-._ _.-'"
     ]
 
     rows = 2 * SIZE - 1
@@ -195,6 +195,30 @@ def printField(field):
     return
 
 
+# Game functions
+##########################################################################################
+
+def askForInputInt(lower, upper, text):
+    while True:
+        answer = input(text)
+        try:
+            if int(answer) >= lower and int(answer) <= upper:
+                return int(answer)
+            else:
+                print("Input out of bounds")
+        except ValueError:
+            print("Unvalid input")
+
+def boardSize(field):
+    board = [[]]
+    for y, _ in enumerate(field):
+        if y:
+            board.append([])
+        for x, _ in enumerate(field[y]):
+            if y+x >= (len(field)-1) / 2 and y+x <= len(field)-1 + ((len(field)-1) / 2):
+                board[y].append('')
+    return board
+
 # Gameloop
 ##########################################################################################
 
@@ -224,8 +248,8 @@ def boardToField(row, cell):
     return row, cell + max(0, 5 - row)
 
 def readChoice(label):
-    row = int(input(f"{label} element: (row)"))
-    cell = int(input(f"{label} element: (cell)"))
+    row = askForInputInt(0, len(boardSize(currentField))-1, f"{label} element: (row)")
+    cell = askForInputInt(0, len(boardSize(currentField)[row])-1, f"{label} element: (cell)")
     row, cell = boardToField(row, cell)
     return {'row': row, 'cell': cell}
 
