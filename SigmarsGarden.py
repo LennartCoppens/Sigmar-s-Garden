@@ -108,9 +108,73 @@ testField = [
 ]
 
 
-# Field generation
+# Game functions
 ##########################################################################################
 
+def askForInputInt(lower, upper, text):
+    while True:
+        answer = input(text)
+        try:
+            if int(answer) >= lower and int(answer) <= upper:
+                return int(answer)
+            else:
+                print("Input out of bounds")
+        except ValueError:
+            print("Unvalid input")
+
+def boardSize(field):
+    board = [[]]
+    for y, _ in enumerate(field):
+        if y:
+            board.append([])
+        for x, _ in enumerate(field[y]):
+            if y+x >= (len(field)-1) / 2 and y+x <= len(field)-1 + ((len(field)-1) / 2):
+                board[y].append('')
+    return board
+
+def canCombine(a, b):
+    aCanTakeB = (possibleCombinations[a] >> elementsIndexed.index(b)) & 1
+    bCanTakeA = (possibleCombinations[b] >> elementsIndexed.index(a)) & 1
+    return aCanTakeB == 1 and bCanTakeA == 1
+
+hexNeighbours = [(-1, 0), (-1, 1), (0, 1), (1, 0), (1, -1), (0, -1), (-1, 0), (-1, 1)]   # (row, cell) offsets of the 6 neighbours
+
+def elementFree(row, cell, field):
+    freeCells = 0
+    for dRow, dCell in hexNeighbours:
+        r, c = row + dRow, cell + dCell
+        if not (0 <= r < len(field) and 0 <= c < len(field[r])):
+            freeCells += 1                                          # Outside the grid counts as free
+        elif not field[r][c]:
+            freeCells += 1
+        else:
+            freeCells = 0                                          # Empty cell
+        if freeCells >= 3:
+            return True
+    return False
+
+def boardToField(row, cell):
+    # Converts the row/cell you see on the printed board to the index in currentField
+    return row, cell + max(0, 5 - row)
+
+def readChoice(label):
+    row = askForInputInt(0, len(boardSize(currentField))-1, f"{label} element: (row)")
+    cell = askForInputInt(0, len(boardSize(currentField)[row])-1, f"{label} element: (cell)")
+    row, cell = boardToField(row, cell)
+    return {'row': row, 'cell': cell}
+
+def removeElements(elem1, elem2 = False):
+    global elementsOnField
+    currentField[elem1["row"]][elem1["cell"]] = 0
+    elementsOnField -=1
+    if elem2:
+        currentField[elem2["row"]][elem2["cell"]] = 0
+        elementsOnField -= 1
+    printField(currentField)
+
+
+# Field generation
+##########################################################################################
 
 numOfRows = 11
 numOfColums = 11
@@ -133,8 +197,49 @@ def generateField(fieldTemplate = testField, elementsPool = elementAmounts):
         availableElements = list(i for i in listOfElements if listOfElements[i])    # Makes a list of all keys in the dictionary where the value doesn't equal zero         
         return availableElements[randint(0, len(availableElements)-1)]              # Takes a random index from this list and returns the corresponding element
 
+    def randomElementPair(listOfElements = leftoverElements):
+        firstElement = randomElement()
+        secondElement = randomElement()
+        while not canCombine(firstElement, secondElement) or not listOfElements[secondElement]:
+            secondElement = elementsIndexed[(elementsIndexed.index(secondElement)+1)%(len(elementsIndexed)-1)]
+        return (firstElement, secondElement)
+
+    def positionFree(row, cell, field):
+        freeCells = 0
+        for dRow, dCell in hexNeighbours:
+            r, c = row + dRow, cell + dCell
+            if not (0 <= r < len(field) and 0 <= c < len(field[r])):
+                freeCells += 1                                          # Outside the grid counts as free
+            elif not field[r][c] == 1:
+                freeCells += 1
+            else:
+                freeCells = 0                                          # Empty cell
+            if freeCells >= 3:
+                return True
+        return False
+
+    def allFreePositions(field):
+        freePositions = []
+        for y, _ in enumerate(field):
+            for x, cell in enumerate(field[y]):
+                if cell == 1 and positionFree(y,x,field):
+                    freePositions.append((y,x))
+        return freePositions
+
+
 
     insertElement(round(numOfRows/2)-1, round(numOfColums/2)-1)     # Insert Gold in the middle of the field to start
+
+    nextPositionsToFill = allFreePositions(field)
+    while len(nextPositionsToFill):
+        a, b = randomElementPair()
+        ya, xa = nextPositionsToFill[randint(0, len(nextPositionsToFill)-1)]
+        yb, xb = nextPositionsToFill[randint(0, len(nextPositionsToFill)-1)]
+        while ya == yb and xa == xb:
+            yb, xb = nextPositionsToFill[randint(0, len(nextPositionsToFill)-1)]
+        insertElement(ya, xa, a)
+        insertElement(yb, xb, b)
+        nextPositionsToFill = allFreePositions(field)
 
     for y in range(len(field)):
         for x in range(len(field[y])):
@@ -195,30 +300,6 @@ def printField(field):
     return
 
 
-# Game functions
-##########################################################################################
-
-def askForInputInt(lower, upper, text):
-    while True:
-        answer = input(text)
-        try:
-            if int(answer) >= lower and int(answer) <= upper:
-                return int(answer)
-            else:
-                print("Input out of bounds")
-        except ValueError:
-            print("Unvalid input")
-
-def boardSize(field):
-    board = [[]]
-    for y, _ in enumerate(field):
-        if y:
-            board.append([])
-        for x, _ in enumerate(field[y]):
-            if y+x >= (len(field)-1) / 2 and y+x <= len(field)-1 + ((len(field)-1) / 2):
-                board[y].append('')
-    return board
-
 # Gameloop
 ##########################################################################################
 
@@ -226,41 +307,7 @@ newGame = False
 gameGoing = False
 quitGame = False
 
-def canCombine(a, b):
-    aCanTakeB = (possibleCombinations[a] >> elementsIndexed.index(b)) & 1
-    bCanTakeA = (possibleCombinations[b] >> elementsIndexed.index(a)) & 1
-    return aCanTakeB == 1 and bCanTakeA == 1
 
-hexNeighbours = [(-1, 0), (-1, 1), (0, 1), (1, 0), (1, -1), (0, -1)]   # (row, cell) offsets of the 6 neighbours
-
-def elementFree(row, cell):
-    freeCells = 0
-    for dRow, dCell in hexNeighbours:
-        r, c = row + dRow, cell + dCell
-        if not (0 <= r < len(currentField) and 0 <= c < len(currentField[r])):
-            freeCells += 1                                          # Outside the grid counts as free
-        elif not currentField[r][c]:
-            freeCells += 1                                          # Empty cell
-    return freeCells >= 3
-
-def boardToField(row, cell):
-    # Converts the row/cell you see on the printed board to the index in currentField
-    return row, cell + max(0, 5 - row)
-
-def readChoice(label):
-    row = askForInputInt(0, len(boardSize(currentField))-1, f"{label} element: (row)")
-    cell = askForInputInt(0, len(boardSize(currentField)[row])-1, f"{label} element: (cell)")
-    row, cell = boardToField(row, cell)
-    return {'row': row, 'cell': cell}
-
-def removeElements(elem1, elem2 = False):
-    global elementsOnField
-    currentField[elem1["row"]][elem1["cell"]] = 0
-    elementsOnField -=1
-    if elem2:
-        currentField[elem2["row"]][elem2["cell"]] = 0
-        elementsOnField -= 1
-    printField(currentField)
 
 while not quitGame:
     gameGoing = newGame or gameGoing
@@ -290,7 +337,7 @@ while not quitGame:
                 print(element1)
 
                 if element1 == "Gold" and leadToGold >= 5:
-                    if elementFree(firstChoice["row"], firstChoice["cell"]):
+                    if elementFree(firstChoice["row"], firstChoice["cell"], currentField):
                         removeElements(firstChoice)
                     else:
                         print("Gold is not free")
@@ -305,9 +352,9 @@ while not quitGame:
                         print("You chose the same cell twice")
                     elif not canCombine(element1, element2):
                         print(f"{element1} and {element2} can't be combined")
-                    elif not elementFree(firstChoice["row"], firstChoice["cell"]):
+                    elif not elementFree(firstChoice["row"], firstChoice["cell"], currentField):
                         print(f"The first element ({element1}) is not free")
-                    elif not elementFree(secondChoice["row"], secondChoice["cell"]):
+                    elif not elementFree(secondChoice["row"], secondChoice["cell"], currentField):
                         print(f"The second element ({element2}) is not free")
                     elif element1 == "Quicksilver" or element2 == "Quicksilver":
                         metal = element2 if element1 == "Quicksilver" else element1
